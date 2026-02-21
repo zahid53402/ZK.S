@@ -1,0 +1,16 @@
+{
+  "name": "zahid-king-session-gen",
+  "version": "1.0.0",
+  "description": "VIP Session Generator for Zahid King MD",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.6.0",
+    "express": "^4.18.2",
+    "pino": "^8.21.0",
+    "qrcode-terminal": "^0.12.0",
+    "fs-extra": "^11.2.0"
+  }
+}
