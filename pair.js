@@ -1,28 +1,46 @@
 const express = require('express');
-const crypto = require('crypto');
-const path = require('path');
+const fs = require('fs');
+const { default: makeWASocket, useMultiFileAuthState, delay } = require("@whiskeysockets/baileys");
+const pino = require("pino");
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// ZAHID KING Branding
-const AUTHOR = "ZAHID KING";
+app.get('/code', async (req, res) => {
+    let num = req.query.number;
+    if (!num) return res.status(400).json({ error: "Please provide a phone number" });
 
-// HTML file dikhane ke liye
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'main.html'));
+    const { state, saveCreds } = await useMultiFileAuthState(`./session`);
+    
+    try {
+        let conn = makeWASocket({
+            auth: state,
+            printQRInTerminal: false,
+            logger: pino({ level: "silent" }),
+            browser: ["Chrome (Linux)", "", ""]
+        });
+
+        if (!conn.authState.creds.registered) {
+            await delay(1500);
+            num = num.replace(/[^0-9]/g, '');
+            const code = await conn.requestPairingCode(num);
+            if (!res.headersSent) {
+                res.json({ code: code });
+            }
+        }
+        
+        conn.ev.on('creds.update', saveCreds);
+        conn.ev.on("connection.update", async (s) => {
+            const { connection } = s;
+            if (connection === "open") {
+                console.log("Connected to WhatsApp!");
+                // Yahan aap apna session ID generate kar ke user ko bhej sakte hain
+            }
+        });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ error: "Service Busy" });
+    }
 });
 
-// Session ID generate karne ki logic
-app.get('/generate', (req, res) => {
-    const sessionId = `ZAHID-KING-${crypto.randomBytes(16).toString('hex').toUpperCase()}`;
-    res.json({
-        success: true,
-        owner: AUTHOR,
-        session_id: sessionId,
-        timestamp: new Date().toLocaleString()
-    });
-});
-
-app.listen(PORT, () => {
-    console.log(`[${AUTHOR}] Generator is live on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`ZAHID KING Server live on ${PORT}`));
