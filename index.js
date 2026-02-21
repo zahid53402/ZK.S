@@ -1,13 +1,19 @@
 const express = require('express');
 const app = express();
-const { default: makeWASocket, useMultiFileAuthState, delay } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, delay, makeCacheableSignalKeyStore } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const fs = require("fs-extra");
+const path = require('path');
 
-const PORT = process.env.PORT || 3000;
+// Replit Networking کے مطابق پورٹ سیٹنگ
+const PORT = process.env.PORT || 80; 
 
-// یہ لائن 'public' فولڈر کو ایکٹو کرتی ہے
 app.use(express.static('public'));
+
+// ہوم پیج روٹ
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 app.get('/code', async (req, res) => {
     let num = req.query.number;
@@ -17,7 +23,10 @@ app.get('/code', async (req, res) => {
     
     try {
         const zkConn = makeWASocket({
-            auth: state,
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
+            },
             printQRInTerminal: false,
             logger: pino({ level: "fatal" }),
             browser: ["Zahid King MD", "Chrome", "1.0.0"]
@@ -36,19 +45,33 @@ app.get('/code', async (req, res) => {
         zkConn.ev.on("connection.update", async (s) => {
             const { connection } = s;
             if (connection == "open") {
-                const session = fs.readFileSync(`./temp/${num}/creds.json`);
-                const b64 = Buffer.from(session).toString("base64");
-                const sessionId = "ZAHID_KING_MD_" + b64;
-                
-                await zkConn.sendMessage(zkConn.user.id, { text: sessionId });
-                await delay(2000);
-                fs.removeSync(`./temp/${num}`);
+                await delay(5000); // کریڈٹ فائل بننے کا انتظار
+                const sessionPath = `./temp/${num}/creds.json`;
+                if (fs.existsSync(sessionPath)) {
+                    const session = fs.readFileSync(sessionPath);
+                    const b64 = Buffer.from(session).toString("base64");
+                    const sessionId = "ZAHID_KING_MD_" + b64;
+                    
+                    await zkConn.sendMessage(zkConn.user.id, { text: sessionId });
+                    await zkConn.sendMessage(zkConn.user.id, { text: "👑 *SUCCESS!* Your Session ID is above. Copy it for deployment. Powered by Zahid King." });
+                    
+                    await delay(2000);
+                    fs.removeSync(`./temp/${num}`);
+                }
             }
         });
 
     } catch (err) {
-        res.status(500).json({ error: "Server Error" });
+        console.error(err);
+        if (!res.headersSent) res.status(500).json({ error: "Server Error" });
     }
 });
 
-app.listen(PORT, () => console.log(`Generator Live on http://localhost:${PORT}`));
+// Replit کے لیے ہوسٹ 0.0.0.0 لازمی ہے
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`
+👑 ZAHID KING MD SESSION GENERATOR 👑
+🚀 Live on Port: ${PORT}
+🔗 Ready for Pairing Code requests
+    `);
+});
