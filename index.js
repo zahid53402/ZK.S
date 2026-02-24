@@ -2,7 +2,6 @@ const {
     default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason,
-    fetchLatestBaileysVersion,
     Browsers
 } = require("@whiskeysockets/baileys");
 const pino = require('pino');
@@ -11,141 +10,80 @@ const fs = require('fs-extra');
 const chalk = require('chalk');
 const yts = require('yt-search');
 
-// --- آپ کی فراہم کردہ ڈیٹیلز ---
 const config = {
     name: "Zᴀʜɪᴅ Kɪɴɢ",
     owner: "923044154575",
     prefix: ".",
     pic: "https://i.ibb.co/LdFF4pSF/temp.jpg",
-    song: "https://files.catbox.moe/5kkxwz.mpeg",
-    group: "https://chat.whatsapp.com/LwcrjuLxfTj9WP1AoWXZeS?mode=gi_t"
+    song: "https://files.catbox.moe/5kkxwz.mpeg"
 };
 
 async function startZahidBot() {
-    // --- 🔑 SESSION ID TO FILE CONVERTER ---
-    // یہ حصہ ریلوے کے ویری ایبل سے سیشن نکال کر 'session' فولڈر میں ڈالے گا
-    if (process.env.SESSION_ID) {
-        if (!fs.existsSync('session/creds.json')) {
-            console.log(chalk.blue('⚙️ Extracting Session ID from Variables...'));
-            try {
-                // اگر آئی ڈی میں ZAHID_KING_MD_ لکھا ہے تو اسے ہٹا کر باقی ڈیٹا نکالنا
-                const sessionData = process.env.SESSION_ID.includes('ZAHID_KING_MD_') 
-                    ? process.env.SESSION_ID.split('ZAHID_KING_MD_')[1] 
-                    : process.env.SESSION_ID;
-                
-                if (!fs.existsSync('session')) fs.mkdirSync('session');
-                fs.writeFileSync('session/creds.json', Buffer.from(sessionData, 'base64').toString());
-                console.log(chalk.green('✅ Session File Created! Connecting...'));
-            } catch (err) {
-                console.log(chalk.red('❌ Invalid Session ID! Please provide a valid Base64 string.'));
+    // --- 🔑 سخت سیشن ہینڈلر ---
+    try {
+        if (process.env.SESSION_ID) {
+            console.log(chalk.yellow('🔎 Checking SESSION_ID from Railway...'));
+            const sessionDir = './session';
+            if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir);
+            
+            // سیشن آئی ڈی سے فالتو الفاظ صاف کرنا
+            let credsData = process.env.SESSION_ID;
+            if (credsData.includes('ZAHID_KING_MD_')) {
+                credsData = credsData.split('ZAHID_KING_MD_')[1];
             }
+            
+            // Base64 کو دوبارہ فائل میں بدلنا
+            const decoded = Buffer.from(credsData, 'base64').toString('utf-8');
+            fs.writeFileSync(`${sessionDir}/creds.json`, decoded);
+            console.log(chalk.green('✅ Session File Fixed and Loaded!'));
         }
+    } catch (err) {
+        console.log(chalk.red('❌ Session decoding failed: ' + err.message));
     }
 
     const { state, saveCreds } = await useMultiFileAuthState('session');
     
     const client = makeWASocket({
         logger: pino({ level: 'silent' }),
-        // اگر سیشن آئی ڈی موجود ہے تو QR ٹرمینل میں نہیں دکھائے گا
-        printQRInTerminal: process.env.SESSION_ID ? false : true,
+        printQRInTerminal: true, // اگر سیشن فیل ہوا تو کم از کم QR تو دکھائے گا
         auth: state,
         browser: Browsers.macOS("Desktop")
     });
 
     client.ev.on('creds.update', saveCreds);
 
-    client.ev.on('messages.upsert', async (chatUpdate) => {
-        try {
-            const msg = chatUpdate.messages[0];
-            if (!msg.message || msg.key.fromMe) return;
-
-            const from = msg.key.remoteJid;
-            const type = Object.keys(msg.message)[0];
-            const body = (type === 'conversation') ? msg.message.conversation : (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text : (type === 'imageMessage') ? msg.message.imageMessage.caption : '';
-            const isCmd = body.startsWith(config.prefix);
-            const command = isCmd ? body.slice(config.prefix.length).split(' ')[0].toLowerCase() : "";
-            const args = body.trim().split(/ +/).slice(1);
-            const text = args.join(" ");
-            const isGroup = from.endsWith('@g.us');
-            const sender = isGroup ? msg.key.participant : from;
-
-            // --- 🛡️ ANTI-LINK SYSTEM ---
-            if (isGroup && body.includes("chat.whatsapp.com")) {
-                const groupMetadata = await client.groupMetadata(from);
-                const admins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
-                if (!admins.includes(sender)) {
-                    await client.sendMessage(from, { delete: msg.key });
-                    await client.sendMessage(from, { text: "🚫 *Links are not allowed!* Zahid King Bot has removed it." });
-                }
-            }
-
-            // --- 👁️ AUTO STATUS SEEN ---
-            if (from === 'status@broadcast') {
-                await client.readMessages([msg.key]);
-            }
-
-            if (!isCmd) return;
-
-            // --- 🎮 COMMANDS ---
-            switch (command) {
-                case 'menu':
-                    let menu = `╭════〘 *${config.name}* 〙════⊷❍\n┃✯│ *Owner:* ${config.owner}\n╰══════════════════⊷❍\n\n` +
-                               `🛡️ *Security:* Anti-Link Active\n🎵 *Song:* .song [name]\n👥 *Group:* .kick, .add, .mute, .unmute\n\n> Powered by Zahid King`;
-                    await client.sendMessage(from, { image: { url: config.pic }, caption: menu }, { quoted: msg });
-                    await client.sendMessage(from, { audio: { url: config.song }, mimetype: 'audio/mp4', ptt: true }, { quoted: msg });
-                    break;
-
-                case 'song':
-                    if (!text) return client.sendMessage(from, { text: "Please provide a song name!" });
-                    const search = await yts(text);
-                    const vid = search.videos[0];
-                    await client.sendMessage(from, { text: `🎧 *Zahid King MD* is downloading: ${vid.title}...` });
-                    await client.sendMessage(from, { 
-                        audio: { url: `https://api.dreaded.site/api/ytdl/video?url=${vid.url}` }, 
-                        mimetype: 'audio/mp4' 
-                    }, { quoted: msg });
-                    break;
-
-                case 'kick':
-                    if (!isGroup) return;
-                    let users = msg.message.extendedTextMessage?.contextInfo?.mentionedJid[0] || msg.message.extendedTextMessage?.contextInfo?.participant;
-                    if (!users) return client.sendMessage(from, { text: "Tag someone to kick!" });
-                    await client.groupParticipantsUpdate(from, [users], "remove");
-                    await client.sendMessage(from, { text: "✅ Member Kicked by Zahid King." });
-                    break;
-
-                case 'mute':
-                    if (!isGroup) return;
-                    await client.groupSettingUpdate(from, 'announcement');
-                    await client.sendMessage(from, { text: "🔒 Group Muted Successfully!" });
-                    break;
-
-                case 'unmute':
-                    if (!isGroup) return;
-                    await client.groupSettingUpdate(from, 'not_announcement');
-                    await client.sendMessage(from, { text: "🔓 Group Unmuted Successfully!" });
-                    break;
-
-                case 'alive':
-                    await client.sendMessage(from, { text: "Yes Boss! Zᴀʜɪᴅ Kɪɴɢ MD is active and ready. 🚀" });
-                    break;
-            }
-
-        } catch (e) { console.log(e); }
-    });
-
-    // --- ⚠️ ANTI-DELETE SYSTEM ---
-    client.ev.on('message.delete', async (m) => {
-        const from = m.key.remoteJid;
-        await client.sendMessage(from, { text: "⚠️ *Anti-Delete Detected!* Someone just deleted a message." });
-    });
-
     client.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
-        if (connection === 'open') console.log(chalk.green('✅ Zahid King Bot Connected!'));
+        const { connection, lastDisconnect, qr } = update;
+        
+        if (qr) console.log(chalk.magenta('⚠️ Session ID not working, please scan this QR!'));
+        
+        if (connection === 'open') {
+            console.log(chalk.green('🚀 Zahid King MD is now ONLINE!'));
+            client.sendMessage(config.owner + "@s.whatsapp.net", { text: "Zahid King MD Connected Successfully! ✅" });
+        }
+        
         if (connection === 'close') {
             let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
             if (reason !== DisconnectReason.loggedOut) startZahidBot();
+        }
+    });
+
+    // --- سادہ کمانڈ ہینڈلر ---
+    client.ev.on('messages.upsert', async (chatUpdate) => {
+        const msg = chatUpdate.messages[0];
+        if (!msg.message || msg.key.fromMe) return;
+        const from = msg.key.remoteJid;
+        const body = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+        
+        if (body === config.prefix + "alive") {
+            await client.sendMessage(from, { text: "Zahid King MD is Active! 🚀" });
+        }
+        
+        if (body === config.prefix + "menu") {
+            await client.sendMessage(from, { 
+                image: { url: config.pic }, 
+                caption: `👑 *${config.name}* \n\n.alive\n.song\n.kick` 
+            });
         }
     });
 }
