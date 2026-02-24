@@ -1,27 +1,24 @@
 {
   "name": "zahid-king-md",
   "version": "1.0.0",
-  "description": "Zahid King MD",
+  "description": "Zahid King MD Multi-Device Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.6.0",
+    "@hapi/boom": "^10.0.1",
     "pino": "^8.14.1",
     "fs-extra": "^11.1.1",
     "chalk": "^4.1.2",
-    "yt-search": "^2.10.4"
+    "axios": "^1.4.0",
+    "yt-search": "^2.10.4",
     "wa-sticker-formatter": "^4.4.4",
-    "fluent-ffmpeg": "^2.1.2"
-  },
-  "engines": {
-    "node": ">=16.x"
-  },
-  "author": "Zahid King",
-  "license": "MIT"
+    "fluent-ffmpeg": "^2.1.2",
+    "qrcode-terminal": "^0.12.0"
+  }
 }
-
