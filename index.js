@@ -30,7 +30,7 @@ async function startZahidBot() {
         auth: state,
         printQRInTerminal: true,
         logger: pino({ level: 'silent' }),
-        browser: Browsers.macOS("Desktop")
+        browser: browser: ["Zahid King MD", "Safari", "3.0.0"]
     });
 
     client.ev.on('creds.update', saveCreds);
@@ -58,3 +58,4 @@ async function startZahidBot() {
 }
 
 startZahidBot();
+
