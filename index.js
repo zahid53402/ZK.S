@@ -22,11 +22,32 @@ const config = {
 };
 
 async function startZahidBot() {
+    // --- 🔑 SESSION ID TO FILE CONVERTER ---
+    // یہ حصہ ریلوے کے ویری ایبل سے سیشن نکال کر 'session' فولڈر میں ڈالے گا
+    if (process.env.SESSION_ID) {
+        if (!fs.existsSync('session/creds.json')) {
+            console.log(chalk.blue('⚙️ Extracting Session ID from Variables...'));
+            try {
+                // اگر آئی ڈی میں ZAHID_KING_MD_ لکھا ہے تو اسے ہٹا کر باقی ڈیٹا نکالنا
+                const sessionData = process.env.SESSION_ID.includes('ZAHID_KING_MD_') 
+                    ? process.env.SESSION_ID.split('ZAHID_KING_MD_')[1] 
+                    : process.env.SESSION_ID;
+                
+                if (!fs.existsSync('session')) fs.mkdirSync('session');
+                fs.writeFileSync('session/creds.json', Buffer.from(sessionData, 'base64').toString());
+                console.log(chalk.green('✅ Session File Created! Connecting...'));
+            } catch (err) {
+                console.log(chalk.red('❌ Invalid Session ID! Please provide a valid Base64 string.'));
+            }
+        }
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState('session');
     
     const client = makeWASocket({
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: true,
+        // اگر سیشن آئی ڈی موجود ہے تو QR ٹرمینل میں نہیں دکھائے گا
+        printQRInTerminal: process.env.SESSION_ID ? false : true,
         auth: state,
         browser: Browsers.macOS("Desktop")
     });
@@ -71,12 +92,11 @@ async function startZahidBot() {
                     let menu = `╭════〘 *${config.name}* 〙════⊷❍\n┃✯│ *Owner:* ${config.owner}\n╰══════════════════⊷❍\n\n` +
                                `🛡️ *Security:* Anti-Link Active\n🎵 *Song:* .song [name]\n👥 *Group:* .kick, .add, .mute, .unmute\n\n> Powered by Zahid King`;
                     await client.sendMessage(from, { image: { url: config.pic }, caption: menu }, { quoted: msg });
-                    // مینو کے ساتھ آپ کا آڈیو پلے ہوگا
                     await client.sendMessage(from, { audio: { url: config.song }, mimetype: 'audio/mp4', ptt: true }, { quoted: msg });
                     break;
 
                 case 'song':
-                    if (!text) return reply("Please provide a song name!");
+                    if (!text) return client.sendMessage(from, { text: "Please provide a song name!" });
                     const search = await yts(text);
                     const vid = search.videos[0];
                     await client.sendMessage(from, { text: `🎧 *Zahid King MD* is downloading: ${vid.title}...` });
@@ -89,6 +109,7 @@ async function startZahidBot() {
                 case 'kick':
                     if (!isGroup) return;
                     let users = msg.message.extendedTextMessage?.contextInfo?.mentionedJid[0] || msg.message.extendedTextMessage?.contextInfo?.participant;
+                    if (!users) return client.sendMessage(from, { text: "Tag someone to kick!" });
                     await client.groupParticipantsUpdate(from, [users], "remove");
                     await client.sendMessage(from, { text: "✅ Member Kicked by Zahid King." });
                     break;
@@ -130,4 +151,3 @@ async function startZahidBot() {
 }
 
 startZahidBot();
-
