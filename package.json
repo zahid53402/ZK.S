@@ -1,19 +1,20 @@
 {
   "name": "zahid-king-md",
   "version": "1.0.0",
-  "description": "Zahid King MD Multi-Device WhatsApp Bot",
+  "description": "Zahid King MD",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.6.0",
-    "@hapi/boom": "^10.0.1",
     "pino": "^8.14.1",
     "fs-extra": "^11.1.1",
     "chalk": "^4.1.2",
-    "axios": "^1.4.0",
-    "yt-search": "^2.10.4",
+    "yt-search": "^2.10.4"
     "wa-sticker-formatter": "^4.4.4",
     "fluent-ffmpeg": "^2.1.2"
   },
@@ -23,3 +24,4 @@
   "author": "Zahid King",
   "license": "MIT"
 }
+
